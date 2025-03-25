@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
-        SLACK_WEBHOOK = 'https://hooks.slack.com/services/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'  // 🔹 Webhook for team3 channel
         PATH = "/Users/asrithap/.nvm/versions/node/v22.13.1/bin:$PATH"
     }
 
@@ -98,14 +97,18 @@ pipeline {
     post {
         success {
             script {
-                echo '✅ Build & Deployment Successful! Sending Slack notification...'
-                sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"✅ *Jenkins Build & Deployment Successful!*\"}' ${SLACK_WEBHOOK}"
+                withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                    echo '✅ Build & Deployment Successful! Sending Slack notification...'
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"✅ *Jenkins Build & Deployment Successful!*\"}' ${SLACK_WEBHOOK_URL}"
+                }
             }
         }
         failure {
             script {
-                echo '❌ Build Failed! Sending Slack notification...'
-                sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"❌ *Jenkins Build Failed!* Check logs for details.\"}' ${SLACK_WEBHOOK}"
+                withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                    echo '❌ Build Failed! Sending Slack notification...'
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"❌ *Jenkins Build Failed!* Check logs for details.\"}' ${SLACK_WEBHOOK_URL}"
+                }
             }
         }
     }
