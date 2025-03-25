@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         GIT_REPO = 'https://github.com/your-username/your-repo.git'
-        SLACK_WEBHOOK = 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
     }
 
     stages {
@@ -35,6 +34,9 @@ pipeline {
         stage('Deploy - Dev') {
             steps {
                 script {
+                    echo 'Granting execute permissions to deploy scripts...'
+                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'  // ✅ Make scripts executable
+
                     echo 'Deploying to Dev Environment...'
                     sh './deploy-dev.sh'
                 }
@@ -63,24 +65,12 @@ pipeline {
         stage('Deploy - QA') {
             steps {
                 script {
+                    echo 'Granting execute permissions to deploy scripts...'
+                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'  // ✅ Make scripts executable
+
                     echo 'Deploying to QA Environment...'
                     sh './deploy-qa.sh'
                 }
-            }
-        }
-    }
-
-    post {
-        success {
-            script {
-                echo 'Build & Deployment Successful! Sending Slack notification...'
-                sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"✅ Jenkins Build & Deployment Successful!\"}' ${SLACK_WEBHOOK}"
-            }
-        }
-        failure {
-            script {
-                echo 'Build Failed! Sending Slack notification...'
-                sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"❌ Jenkins Build Failed!\"}' ${SLACK_WEBHOOK}"
             }
         }
     }
