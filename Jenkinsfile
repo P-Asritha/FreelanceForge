@@ -73,21 +73,27 @@ pipeline {
             }
         }
 
-        stage('Deploy Backend') {
+        stage('Deploy Backend to Dev') {
             steps {
                 script {
-                    echo '🚀 Deploying Backend (API)...'
-                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'
+                    withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                        echo '🚀 Build Started for Dev environment...'
+                        sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
+                    }
+                    sh 'chmod +x deploy-dev.sh'
                     sh './deploy-dev.sh'
                 }
             }
         }
 
-        stage('Deploy Frontend') {
+        stage('Deploy Backend to QA') {
             steps {
                 script {
-                    echo '🚀 Deploying Frontend (React)...'
-                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'
+                    withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                        echo '🚀 Build Started for QA environment...'
+                        sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
+                    }
+                    sh 'chmod +x deploy-qa.sh'
                     sh './deploy-qa.sh'
                 }
             }
@@ -98,16 +104,18 @@ pipeline {
         success {
             script {
                 withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-                    echo '✅ Build & Deployment Successful! Sending Slack notification...'
-                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"✅ *Jenkins Build & Deployment Successful!*\"}' ${SLACK_WEBHOOK_URL}"
+                    echo '✅ Build & Deployment Successful!'
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":white_check_mark: *Build SUCCESSFUL for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":white_check_mark: *Build SUCCESSFUL for QA environment!*\"}' ${SLACK_WEBHOOK_URL}"
                 }
             }
         }
         failure {
             script {
                 withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-                    echo '❌ Build Failed! Sending Slack notification...'
-                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \"❌ *Jenkins Build Failed!* Check logs for details.\"}' ${SLACK_WEBHOOK_URL}"
+                    echo '❌ Build Failed!'
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":x: *Build FAILED for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":x: *Build FAILED for QA environment!*\"}' ${SLACK_WEBHOOK_URL}"
                 }
             }
         }
