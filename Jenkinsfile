@@ -7,18 +7,18 @@ pipeline {
     }
 
     stages {
-        stage('Clone Repository') {
+        stage('Clean Workspace & Fetch Latest Code') {
             steps {
                 script {
-                    echo '🔄 Cleaning workspace...'
-                    sh 'rm -rf *'
-                    sh 'git clone ${GIT_REPO} .'
-                    sh 'ls -la'  // ✅ Check if api/ and client/ exist
+                    echo '🔄 Cleaning workspace and pulling latest changes...'
+                    sh 'git reset --hard'  // ✅ Reset changes
+                    sh 'git clean -fd'    // ✅ Remove untracked files
+                    sh 'git pull origin main'  // ✅ Pull latest code
+                    sh 'ls -la'  // ✅ Verify files exist
                 }
             }
         }
 
-        // 🚀 Install Backend (API)
         stage('Install Backend Dependencies') {
             steps {
                 script {
@@ -28,7 +28,6 @@ pipeline {
             }
         }
 
-        // 🚀 Install Frontend (Client)
         stage('Install Frontend Dependencies') {
             steps {
                 script {
@@ -38,7 +37,6 @@ pipeline {
             }
         }
 
-        // 🚀 Build Backend (API)
         stage('Build Backend') {
             steps {
                 script {
@@ -48,7 +46,6 @@ pipeline {
             }
         }
 
-        // 🚀 Build Frontend (React)
         stage('Build Frontend') {
             steps {
                 script {
@@ -58,7 +55,6 @@ pipeline {
             }
         }
 
-        // 🚀 Test Backend
         stage('Test Backend') {
             steps {
                 script {
@@ -68,7 +64,6 @@ pipeline {
             }
         }
 
-        // 🚀 Test Frontend
         stage('Test Frontend') {
             steps {
                 script {
@@ -78,7 +73,6 @@ pipeline {
             }
         }
 
-        // 🚀 Deploy Backend
         stage('Deploy Backend') {
             steps {
                 script {
@@ -89,7 +83,6 @@ pipeline {
             }
         }
 
-        // 🚀 Deploy Frontend
         stage('Deploy Frontend') {
             steps {
                 script {
@@ -101,3 +94,4 @@ pipeline {
         }
     }
 }
+
