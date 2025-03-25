@@ -4,8 +4,8 @@ echo "🚀 Deploying to QA Environment..."
 # Change to frontend directory
 cd client || exit 1
 
-# Install production dependencies
-npm install --omit=dev
+# Force install production dependencies (fixes ERESOLVE)
+npm install --omit=dev --legacy-peer-deps
 
 # Start frontend in the background
 npm run preview &
