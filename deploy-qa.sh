@@ -4,10 +4,10 @@ echo "🚀 Deploying to QA Environment..."
 # Change to frontend directory
 cd client || exit 1
 
-# Force install production dependencies (fixes ERESOLVE)
-npm install --omit=dev --legacy-peer-deps
+# Install production dependencies
+npm install --omit=dev
 
-# Start frontend in the background
-npm run preview &
+# Run frontend preview using globally installed Vite
+vite preview &
 
 echo "✅ Deployment to QA Completed!"
