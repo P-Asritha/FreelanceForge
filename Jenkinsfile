@@ -32,7 +32,7 @@ pipeline {
             steps {
                 script {
                     echo '📦 Installing frontend dependencies...'
-                    sh 'cd client && npm install'
+                    sh 'cd client && npm install --legacy-peer-deps'  // ✅ Fixes dependency conflicts
                 }
             }
         }
