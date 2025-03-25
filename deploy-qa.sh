@@ -1,5 +1,13 @@
 #!/bin/bash
 echo "🚀 Deploying to QA Environment..."
-npm install --production
-npm start
+
+# Change to frontend directory
+cd client || exit 1
+
+# Install only production dependencies
+npm install --omit=dev
+
+# Start the frontend (modify this if needed)
+npm run preview
+
 echo "✅ Deployment to QA Completed!"
