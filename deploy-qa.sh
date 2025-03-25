@@ -4,10 +4,10 @@ echo "🚀 Deploying to QA Environment..."
 # Change to frontend directory
 cd client || exit 1
 
-# Install production dependencies
-npm install --omit=dev
+# Force install dependencies (temporary workaround)
+npm install --omit=dev --legacy-peer-deps
 
-# Run frontend preview using globally installed Vite
-vite preview &
+# Start frontend preview
+npx vite preview &
 
 echo "✅ Deployment to QA Completed!"
