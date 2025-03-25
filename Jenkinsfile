@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
+        PATH = "/Users/asrithap/.nvm/versions/node/v22.13.1/bin:$PATH"  // ✅ Add Node.js path for Jenkins
     }
 
     stages {
@@ -15,6 +16,10 @@ pipeline {
         stage('Build - Dev') {
             steps {
                 script {
+                    echo 'Checking Node.js and npm versions...'
+                    sh 'node -v'  // ✅ This should now work
+                    sh 'npm -v'   // ✅ This should now work
+
                     echo 'Building in Dev Environment...'
                     sh 'npm install'
                     sh 'npm run build'
@@ -35,7 +40,7 @@ pipeline {
             steps {
                 script {
                     echo 'Granting execute permissions to deploy scripts...'
-                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'  // ✅ Make scripts executable
+                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'
 
                     echo 'Deploying to Dev Environment...'
                     sh './deploy-dev.sh'
@@ -66,7 +71,7 @@ pipeline {
             steps {
                 script {
                     echo 'Granting execute permissions to deploy scripts...'
-                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'  // ✅ Make scripts executable
+                    sh 'chmod +x deploy-dev.sh deploy-qa.sh'
 
                     echo 'Deploying to QA Environment...'
                     sh './deploy-qa.sh'
@@ -75,3 +80,4 @@ pipeline {
         }
     }
 }
+
