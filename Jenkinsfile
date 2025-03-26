@@ -27,7 +27,7 @@ pipeline {
                 script {
                     echo '📦 Installing backend & frontend dependencies...'
                     sh 'cd api && npm install --only=prod'
-                    sh 'cd client && npm install --legacy-peer-deps'  // ✅ Install ALL dependencies for frontend
+                    sh 'cd client && npm install --legacy-peer-deps'  
                 }
             }
         }
@@ -50,11 +50,14 @@ pipeline {
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'npm install -g pm2'"
+                    // 🔹 Install pm2 locally to avoid permission issues
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install pm2'"
 
+                    // 🔹 Deploy only necessary files to AWS
                     sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client package.json deploy-dev.sh ${DEV_SERVER}:~/app"
 
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --only=prod && pm2 restart all || pm2 start api/server.js --name FreelanceForge'"
+                    // 🔹 Start the application using `npx pm2` (avoids sudo issues)
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --only=prod && npx pm2 start api/server.js --name FreelanceForge'"
                 }
             }
         }
@@ -67,11 +70,14 @@ pipeline {
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'npm install -g pm2'"
+                    // 🔹 Install pm2 locally to avoid permission issues
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install pm2'"
 
+                    // 🔹 Deploy only necessary files to AWS
                     sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client package.json deploy-qa.sh ${QA_SERVER}:~/app"
 
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --only=prod && pm2 restart all || pm2 start api/server.js --name FreelanceForge'"
+                    // 🔹 Start the application using `npx pm2` (avoids sudo issues)
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --only=prod && npx pm2 start api/server.js --name FreelanceForge'"
                 }
             }
         }
