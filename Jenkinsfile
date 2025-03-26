@@ -4,8 +4,8 @@ pipeline {
     environment {
         GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
         PATH = "/Users/asrithap/.nvm/versions/node/v22.13.1/bin:$PATH"
-        DEV_SERVER = "54.226.35.143"
-        QA_SERVER = "18.205.238.248"
+        DEV_SERVER = "ec2-user@54.226.35.143"
+        QA_SERVER = "ec2-user@18.205.238.248"
         SSH_KEY = "~/.ssh/NewJenkinsKey.pem"
     }
 
@@ -49,8 +49,12 @@ pipeline {
                         echo '🚀 Build Started for Dev environment...'
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r . ec2-user@${DEV_SERVER}:~/app"
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${DEV_SERVER} 'cd ~/app && npm install && pm2 restart all || pm2 start server.js'"
+                    
+                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'mkdir -p ~/app/api ~/app/client'"
+                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r ./api ./client ./deploy-dev.sh ${DEV_SERVER}:~/app"
+                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'cd ~/app/api && npm install'"
+                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'cd ~/app/client && npm install --legacy-peer-deps'"
+                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'pm2 restart all'"
                 }
             }
         }
@@ -62,8 +66,12 @@ pipeline {
                         echo '🚀 Build Started for QA environment...'
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r . ec2-user@${QA_SERVER}:~/app"
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${QA_SERVER} 'cd ~/app && npm install && pm2 restart all || pm2 start server.js'"
+                    
+                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'mkdir -p ~/app/api ~/app/client'"
+                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r ./api ./client ./deploy-qa.sh ${QA_SERVER}:~/app"
+                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'cd ~/app/api && npm install'"
+                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'cd ~/app/client && npm install --legacy-peer-deps'"
+                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'pm2 restart all'"
                 }
             }
         }
