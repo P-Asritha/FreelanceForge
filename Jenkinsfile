@@ -5,6 +5,7 @@ pipeline {
         GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
         DEV_SERVER = "ec2-user@18.205.20.168"  // Public IP of the Dev instance
         QA_SERVER = "ec2-user@34.204.15.111"  // Public IP of the QA instance
+        PATH = "/usr/local/bin:$PATH"  // Ensures Jenkins uses Node.js installed via Homebrew
     }
 
     stages {
@@ -109,4 +110,3 @@ pipeline {
         }
     }
 }
-
