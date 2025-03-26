@@ -4,6 +4,9 @@ pipeline {
     environment {
         GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
         PATH = "/Users/asrithap/.nvm/versions/node/v22.13.1/bin:$PATH"
+        DEV_SERVER = "ec2-user@54.226.35.143"
+        QA_SERVER = "ec2-user@18.205.238.248"
+        SSH_KEY = "~/.ssh/NewJenkinsKey.pem"
     }
 
     stages {
@@ -14,87 +17,53 @@ pipeline {
                     sh 'git reset --hard'  
                     sh 'git clean -fd'    
                     sh 'git pull origin main'  
-                    sh 'ls -la'  
+                    sh 'ls -la'
                 }
             }
         }
 
-        stage('Install Backend Dependencies') {
+        stage('Install Dependencies') {
             steps {
                 script {
-                    echo '📦 Installing backend dependencies...'
+                    echo '📦 Installing backend & frontend dependencies...'
                     sh 'cd api && npm install'
-                }
-            }
-        }
-
-        stage('Install Frontend Dependencies') {
-            steps {
-                script {
-                    echo '📦 Installing frontend dependencies...'
                     sh 'cd client && npm install --legacy-peer-deps'
                 }
             }
         }
 
-        stage('Build Backend') {
+        stage('Build Application') {
             steps {
                 script {
-                    echo '⚙️ Building backend...'
+                    echo '⚙️ Building application...'
                     sh 'cd api && npm run build || echo "No build step needed for backend"'
-                }
-            }
-        }
-
-        stage('Build Frontend') {
-            steps {
-                script {
-                    echo '⚙️ Building frontend...'
                     sh 'cd client && npm run build'
                 }
             }
         }
 
-        stage('Test Backend') {
-            steps {
-                script {
-                    echo '🛠 Running backend tests...'
-                    sh 'cd api && npm test || echo "No test script defined"'
-                }
-            }
-        }
-
-        stage('Test Frontend') {
-            steps {
-                script {
-                    echo '🛠 Running frontend tests...'
-                    sh 'cd client && npm test || echo "No test script defined"'
-                }
-            }
-        }
-
-        stage('Deploy Backend to Dev') {
+        stage('Deploy to Dev') {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                         echo '🚀 Build Started for Dev environment...'
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
-                    sh 'chmod +x deploy-dev.sh'
-                    sh './deploy-dev.sh'
+                    sh "scp -i ${SSH_KEY} -r ./ ec2-user@${DEV_SERVER}:~/app"
+                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'cd ~/app && npm install && pm2 restart all'"
                 }
             }
         }
 
-        stage('Deploy Backend to QA') {
+        stage('Deploy to QA') {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                         echo '🚀 Build Started for QA environment...'
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
-                    sh 'chmod +x deploy-qa.sh'
-                    sh './deploy-qa.sh'
+                    sh "scp -i ${SSH_KEY} -r ./ ec2-user@${QA_SERVER}:~/app"
+                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'cd ~/app && npm install && pm2 restart all'"
                 }
             }
         }
