@@ -26,8 +26,15 @@ pipeline {
             steps {
                 script {
                     echo '📦 Installing backend & frontend dependencies...'
-                    sh 'cd api && npm install --only=prod'
-                    sh 'cd client && npm install --only=prod --legacy-peer-deps'
+
+                    // 🔹 Install API dependencies
+                    sh 'cd api && npm ci --legacy-peer-deps'
+
+                    // 🔹 Install Frontend dependencies
+                    sh 'cd client && npm ci --legacy-peer-deps'
+
+                    // 🔹 Ensure `node_modules/.vite` exists to prevent Vite issues
+                    sh 'mkdir -p client/node_modules/.vite'
                 }
             }
         }
@@ -50,7 +57,7 @@ pipeline {
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    // 🔹 Ensure the Dev instance has Node.js, npm, and pm2 installed
+                    // 🔹 Ensure Dev instance has required software
                     sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'node -v && npm -v && npx pm2 -v'"
 
                     // 🔹 Transfer only the required files
@@ -70,7 +77,7 @@ pipeline {
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    // 🔹 Ensure the QA instance has Node.js, npm, and pm2 installed
+                    // 🔹 Ensure QA instance has required software
                     sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'node -v && npm -v && npx pm2 -v'"
 
                     // 🔹 Transfer only the required files
