@@ -3,10 +3,8 @@ pipeline {
 
     environment {
         GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
-        PATH = "/Users/asrithap/.nvm/versions/node/v22.13.1/bin:$PATH"
-        DEV_SERVER = "ec2-user@54.226.35.143"
-        QA_SERVER = "ec2-user@18.205.238.248"
-        SSH_KEY = "~/.ssh/NewJenkinsKey.pem"
+        DEV_SERVER = "ec2-user@18.205.20.168"  // Public IP of the Dev instance
+        QA_SERVER = "ec2-user@34.204.15.111"  // Public IP of the QA instance
     }
 
     stages {
@@ -26,14 +24,8 @@ pipeline {
             steps {
                 script {
                     echo '📦 Installing backend & frontend dependencies...'
-                    
-                    // Backend dependencies
                     sh 'cd api && npm install --legacy-peer-deps'
-
-                    // Frontend dependencies
                     sh 'cd client && npm install --legacy-peer-deps'
-
-                    // Fix vite issue for frontend
                     sh 'mkdir -p client/node_modules/.vite'
                 }
             }
@@ -52,19 +44,21 @@ pipeline {
         stage('Deploy to Dev') {
             steps {
                 script {
+                    // Send Slack notification before starting deployment
                     withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                         echo '🚀 Build Started for Dev environment...'
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    // Install PM2 if not installed (Fixed Permission Issue)
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'sudo npm install -g pm2'"
+                    // Use the SSH private key to deploy
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
+                        echo '🚀 Deploying to Dev environment...'
 
-                    // Transfer only necessary files
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-dev.sh ecosystem.config.js ${DEV_SERVER}:~/app"
-
-                    // Restart app using PM2
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                        // Install PM2 and deploy app
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'sudo npm install -g pm2'"
+                        sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-dev.sh deploy-dev.sh ecosystem.config.js ${DEV_SERVER}:~/app"
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                    }
                 }
             }
         }
@@ -72,19 +66,21 @@ pipeline {
         stage('Deploy to QA') {
             steps {
                 script {
+                    // Send Slack notification before starting deployment
                     withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                         echo '🚀 Build Started for QA environment...'
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    // Install PM2 if not installed (Fixed Permission Issue)
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'sudo npm install -g pm2'"
+                    // Use the SSH private key to deploy
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
+                        echo '🚀 Deploying to QA environment...'
 
-                    // Transfer only necessary files
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-qa.sh ecosystem.config.js ${QA_SERVER}:~/app"
-
-                    // Restart app using PM2
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                        // Install PM2 and deploy app
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'sudo npm install -g pm2'"
+                        sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-qa.sh deploy-qa.sh ecosystem.config.js ${QA_SERVER}:~/app"
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                    }
                 }
             }
         }
@@ -93,6 +89,7 @@ pipeline {
     post {
         success {
             script {
+                // Send Slack notification after successful deployment
                 withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                     echo '✅ Build & Deployment Successful!'
                     sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":white_check_mark: *Build SUCCESSFUL for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
@@ -102,6 +99,7 @@ pipeline {
         }
         failure {
             script {
+                // Send Slack notification after failed deployment
                 withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                     echo '❌ Build Failed!'
                     sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":x: *Build FAILED for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
@@ -111,3 +109,4 @@ pipeline {
         }
     }
 }
+
