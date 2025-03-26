@@ -26,8 +26,8 @@ pipeline {
             steps {
                 script {
                     echo '📦 Installing backend & frontend dependencies...'
-                    sh 'cd api && npm install'
-                    sh 'cd client && npm install --legacy-peer-deps'
+                    sh 'cd api && npm install --only=prod'
+                    sh 'cd client && npm install --only=prod --legacy-peer-deps'
                 }
             }
         }
@@ -50,11 +50,14 @@ pipeline {
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
                     
-                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'mkdir -p ~/app/api ~/app/client'"
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r ./api ./client ./deploy-dev.sh ${DEV_SERVER}:~/app"
-                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'cd ~/app/api && npm install'"
-                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'cd ~/app/client && npm install --legacy-peer-deps'"
-                    sh "ssh -i ${SSH_KEY} ${DEV_SERVER} 'pm2 restart all'"
+                    // Ensure PM2 is installed on the server
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'npm install -g pm2'"
+
+                    // Transfer only required files
+                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client package.json deploy-dev.sh ${DEV_SERVER}:~/app"
+
+                    // Deploy and restart application using PM2
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --only=prod && pm2 restart all || pm2 start api/server.js --name FreelanceForge'"
                 }
             }
         }
@@ -66,12 +69,15 @@ pipeline {
                         echo '🚀 Build Started for QA environment...'
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
-                    
-                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'mkdir -p ~/app/api ~/app/client'"
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r ./api ./client ./deploy-qa.sh ${QA_SERVER}:~/app"
-                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'cd ~/app/api && npm install'"
-                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'cd ~/app/client && npm install --legacy-peer-deps'"
-                    sh "ssh -i ${SSH_KEY} ${QA_SERVER} 'pm2 restart all'"
+
+                    // Ensure PM2 is installed on the server
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'npm install -g pm2'"
+
+                    // Transfer only required files
+                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client package.json deploy-qa.sh ${QA_SERVER}:~/app"
+
+                    // Deploy and restart application using PM2
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --only=prod && pm2 restart all || pm2 start api/server.js --name FreelanceForge'"
                 }
             }
         }
@@ -98,3 +104,4 @@ pipeline {
         }
     }
 }
+
