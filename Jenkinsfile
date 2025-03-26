@@ -14,9 +14,9 @@ pipeline {
             steps {
                 script {
                     echo '🔄 Cleaning workspace and pulling latest changes...'
-                    sh 'git reset --hard'  
-                    sh 'git clean -fd'    
-                    sh 'git pull origin main'  
+                    sh 'git reset --hard'
+                    sh 'git clean -fd'
+                    sh 'git pull origin main'
                     sh 'ls -la'
                 }
             }
@@ -27,7 +27,7 @@ pipeline {
                 script {
                     echo '📦 Installing backend & frontend dependencies...'
                     sh 'cd api && npm install --only=prod'
-                    sh 'cd client && npm install --legacy-peer-deps'  
+                    sh 'cd client && npm install --only=prod --legacy-peer-deps'
                 }
             }
         }
@@ -50,14 +50,14 @@ pipeline {
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    // 🔹 Install pm2 locally to avoid permission issues
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install pm2'"
+                    // 🔹 Ensure the Dev instance has Node.js, npm, and pm2 installed
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'node -v && npm -v && npx pm2 -v'"
 
-                    // 🔹 Deploy only necessary files to AWS
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client package.json deploy-dev.sh ${DEV_SERVER}:~/app"
+                    // 🔹 Transfer only the required files
+                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-dev.sh ${DEV_SERVER}:~/app"
 
-                    // 🔹 Start the application using `npx pm2` (avoids sudo issues)
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --only=prod && npx pm2 start api/server.js --name FreelanceForge'"
+                    // 🔹 Run the application in AWS Dev instance
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --only=prod && npx pm2 restart api/server.js --name FreelanceForge'"
                 }
             }
         }
@@ -70,14 +70,14 @@ pipeline {
                         sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
                     }
 
-                    // 🔹 Install pm2 locally to avoid permission issues
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install pm2'"
+                    // 🔹 Ensure the QA instance has Node.js, npm, and pm2 installed
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'node -v && npm -v && npx pm2 -v'"
 
-                    // 🔹 Deploy only necessary files to AWS
-                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client package.json deploy-qa.sh ${QA_SERVER}:~/app"
+                    // 🔹 Transfer only the required files
+                    sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-qa.sh ${QA_SERVER}:~/app"
 
-                    // 🔹 Start the application using `npx pm2` (avoids sudo issues)
-                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --only=prod && npx pm2 start api/server.js --name FreelanceForge'"
+                    // 🔹 Run the application in AWS QA instance
+                    sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --only=prod && npx pm2 restart api/server.js --name FreelanceForge'"
                 }
             }
         }
