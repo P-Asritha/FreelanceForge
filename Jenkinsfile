@@ -2,51 +2,87 @@ pipeline {
     agent any
 
     environment {
-        AWS_DEFAULT_REGION = 'us-east-1' // Update if your region is different
-        S3_BUCKET_NAME = 'forte-free-lance-artifacts'
-        SLACK_WEBHOOK_URL = credentials('slack-webhook-url') // Set this in Jenkins credentials
+        GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
+        DEV_SERVER = "ec2-user@18.205.20.168"  // Public IP of the Dev instance
+        QA_SERVER = "ec2-user@34.204.15.111"  // Public IP of the QA instance
+        PATH = "/usr/local/bin:$PATH"  // Ensures Jenkins uses Node.js installed via Homebrew
     }
 
     stages {
-        stage('Notify Start') {
+        stage('Clean Workspace & Fetch Latest Code') {
             steps {
                 script {
-                    slackSend(color: '#FFFF00', message: "🚀 Build started for *Forte Free Lance Project*")
+                    echo '🔄 Cleaning workspace and pulling latest changes...'
+                    sh 'git reset --hard'  
+                    sh 'git clean -fd'    
+                    sh 'git pull origin main'  
+                    sh 'ls -la'
                 }
-            }
-        }
-
-        stage('Checkout Code') {
-            steps {
-                git 'https://github.com/puneeth890/forte-free-lance.git'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                sh '''
-                    if [ -f package.json ]; then
-                        npm install
-                    fi
-                '''
+                script {
+                    echo '📦 Installing backend & frontend dependencies...'
+                    sh 'cd api && npm install --legacy-peer-deps'
+                    sh 'cd client && npm install --legacy-peer-deps'
+                    sh 'mkdir -p client/node_modules/.vite'
+                }
             }
         }
 
-        stage('Build App') {
+        stage('Build Application') {
             steps {
-                sh '''
-                    echo "Building app..."
-                    # Add your build commands here (e.g., npm run build)
-                '''
+                script {
+                    echo '⚙️ Building application...'
+                    sh 'cd api && npm run build || echo "No build step needed for backend"'
+                    sh 'cd client && npm run build'
+                }
             }
         }
 
-        stage('Deploy to AWS S3') {
+        stage('Deploy to Dev') {
             steps {
-                sh '''
-                    echo "Deploying to S3..."
-                    aws s3 cp ./dist s3://$S3_BUCKET_NAME/ --recursive
-                '''
+                script {
+                    // Send Slack notification before starting deployment
+                    withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                        echo '🚀 Build Started for Dev environment...'
+                        sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
+                    }
+
+                    // Use the SSH private key to deploy
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
+                        echo '🚀 Deploying to Dev environment...'
+
+                        // Install PM2 and deploy app
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'sudo npm install -g pm2'"
+                        sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-dev.sh deploy-dev.sh ecosystem.config.js ${DEV_SERVER}:~/app"
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to QA') {
+            steps {
+                script {
+                    // Send Slack notification before starting deployment
+                    withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                        echo '🚀 Build Started for QA environment...'
+                        sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
+                    }
+
+                    // Use the SSH private key to deploy
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
+                        echo '🚀 Deploying to QA environment...'
+
+                        // Install PM2 and deploy app
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'sudo npm install -g pm2'"
+                        sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-qa.sh deploy-qa.sh ecosystem.config.js ${QA_SERVER}:~/app"
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                    }
+                }
             }
         }
     }
@@ -54,12 +90,22 @@ pipeline {
     post {
         success {
             script {
-                slackSend(color: '#36a64f', message: "✅ Build and deployment successful for *Forte Free Lance Project*")
+                // Send Slack notification after successful deployment
+                withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                    echo '✅ Build & Deployment Successful!'
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":white_check_mark: *Build SUCCESSFUL for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":white_check_mark: *Build SUCCESSFUL for QA environment!*\"}' ${SLACK_WEBHOOK_URL}"
+                }
             }
         }
         failure {
             script {
-                slackSend(color: '#FF0000', message: "❌ Build failed for *Forte Free Lance Project*")
+                // Send Slack notification after failed deployment
+                withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                    echo '❌ Build Failed!'
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":x: *Build FAILED for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
+                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":x: *Build FAILED for QA environment!*\"}' ${SLACK_WEBHOOK_URL}"
+                }
             }
         }
     }
