@@ -49,10 +49,10 @@ pipeline {
                     script {
                         if (params.ENV == 'dev') {
                             echo '🚀 Deploying to DEV server...'
-                            sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@54.235.10.152 'bash ~/run-docker.sh'"
+                            sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@44.193.128.7 'bash ~/run-docker.sh'"
                         } else if (params.ENV == 'qa') {
                             echo '🚀 Deploying to QA server...'
-                            sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@54.166.163.248 'bash ~/run-docker.sh'"
+                            sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@54.83.124.81 'bash ~/run-docker.sh'"
                         }
                     }
                 }
