@@ -21,8 +21,8 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                sh 'docker build -t freelanceforge-client ./client'
-                sh 'docker build -t freelanceforge-api ./api'
+                sh 'docker build --platform linux/amd64 -t freelanceforge-client ./client'
+                sh 'docker build --platform linux/amd64 -t freelanceforge-api ./api'
             }
         }
 
