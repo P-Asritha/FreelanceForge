@@ -62,7 +62,7 @@ pipeline {
 
     post {
       success {
-        withCredentials([string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')]) {
+        withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
           sh """
             curl -X POST -H 'Content-type: application/json' --data '{
               "text": "✅ *Build Success!*\n*Environment:* ${ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* SUCCESS\n*Server:* ${DEPLOY_SERVER}"
@@ -71,7 +71,7 @@ pipeline {
         }
       }
       failure {
-        withCredentials([string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')]) {
+        withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
           sh """
             curl -X POST -H 'Content-type: application/json' --data '{
               "text": "❌ *Build Failed!*\n*Environment:* ${ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* FAILURE\n*Server:* ${DEPLOY_SERVER}"
