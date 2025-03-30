@@ -43,17 +43,24 @@ pipeline {
             }
         }
 
+        stage('Set Deploy Server') {
+            steps {
+                script {
+                    if (params.ENV == 'dev') {
+                        env.DEPLOY_SERVER = '44.193.128.7'
+                    } else if (params.ENV == 'qa') {
+                        env.DEPLOY_SERVER = '54.83.124.81'
+                    }
+                }
+            }
+        }
+
         stage('Remote Deploy to EC2') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
                     script {
-                        if (params.ENV == 'dev') {
-                            echo '🚀 Deploying to DEV server...'
-                            sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@44.193.128.7 'bash ~/run-docker.sh'"
-                        } else if (params.ENV == 'qa') {
-                            echo '🚀 Deploying to QA server...'
-                            sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@54.83.124.81 'bash ~/run-docker.sh'"
-                        }
+                        echo "🚀 Deploying to ${params.ENV.toUpperCase()} server at ${env.DEPLOY_SERVER}..."
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${env.DEPLOY_SERVER} 'bash ~/run-docker.sh'"
                     }
                 }
             }
@@ -61,24 +68,25 @@ pipeline {
     }
 
     post {
-      success {
-        withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-          sh """
-            curl -X POST -H 'Content-type: application/json' --data '{
-              "text": "✅ *Build Success!*\n*Environment:* ${ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* SUCCESS\n*Server:* ${DEPLOY_SERVER}"
-            }' $SLACK_WEBHOOK_URL
-          """
+        success {
+            withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh """
+                    curl -X POST -H 'Content-type: application/json' --data '{
+                      "text": "✅ *Build Success!*\n*Environment:* ${params.ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* SUCCESS\n*Server:* ${env.DEPLOY_SERVER}"
+                    }' $SLACK_WEBHOOK_URL
+                """
+            }
         }
-      }
-      failure {
-        withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-          sh """
-            curl -X POST -H 'Content-type: application/json' --data '{
-              "text": "❌ *Build Failed!*\n*Environment:* ${ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* FAILURE\n*Server:* ${DEPLOY_SERVER}"
-            }' $SLACK_WEBHOOK_URL
-          """
-        }
-      }
-    }
 
+        failure {
+            withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh """
+                    curl -X POST -H 'Content-type: application/json' --data '{
+                      "text": "❌ *Build Failed!*\n*Environment:* ${params.ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* FAILURE\n*Server:* ${env.DEPLOY_SERVER}"
+                    }' $SLACK_WEBHOOK_URL
+                """
+            }
+        }
+    }
 }
+
