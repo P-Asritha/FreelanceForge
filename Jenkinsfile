@@ -2,29 +2,28 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'ENV', choices: ['dev', 'qa'], description: 'Select environment')
+        choice(name: 'ENV', choices: ['dev', 'qa'], description: 'Choose the environment to deploy to')
     }
 
     environment {
-        AWS_REGION = 'us-east-1'
-        CLIENT_IMAGE = 'freelanceforge-client'
-        API_IMAGE = 'freelanceforge-api'
-        ECR_URI = 'public.ecr.aws/c3t3f9g9'
-        DEV_HOST = '54.235.10.152'
-        QA_HOST = '54.166.163.248'
+        CLIENT_IMAGE = "freelanceforge-client"
+        API_IMAGE = "freelanceforge-api"
+        AWS_REGION = "us-east-1"
+        ECR_REPO_CLIENT = "public.ecr.aws/c3t3f9g9/freelanceforge-client"
+        ECR_REPO_API = "public.ecr.aws/c3t3f9g9/freelanceforge-api"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/P-Asritha/FreelanceForge.git'
+                git 'https://github.com/P-Asritha/FreelanceForge.git'
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                sh 'docker build -t $CLIENT_IMAGE ./client'
-                sh 'docker build -t $API_IMAGE ./api'
+                sh 'docker build --platform=linux/amd64 -t $CLIENT_IMAGE ./client'
+                sh 'docker build --platform=linux/amd64 -t $API_IMAGE ./api'
             }
         }
 
@@ -36,10 +35,10 @@ pipeline {
                 ]]) {
                     sh '''
                         aws ecr-public get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin public.ecr.aws
-                        docker tag $CLIENT_IMAGE $ECR_URI/$CLIENT_IMAGE:latest
-                        docker tag $API_IMAGE $ECR_URI/$API_IMAGE:latest
-                        docker push $ECR_URI/$CLIENT_IMAGE:latest
-                        docker push $ECR_URI/$API_IMAGE:latest
+                        docker tag $CLIENT_IMAGE $ECR_REPO_CLIENT:latest
+                        docker tag $API_IMAGE $ECR_REPO_API:latest
+                        docker push $ECR_REPO_CLIENT:latest
+                        docker push $ECR_REPO_API:latest
                     '''
                 }
             }
@@ -47,15 +46,11 @@ pipeline {
 
         stage('Remote Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'ssh-private-key',
-                    keyFileVariable: 'SSH_KEY',
-                    usernameVariable: 'SSH_USER'
-                )]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
                     script {
-                        def host = params.ENV == 'dev' ? env.DEV_HOST : env.QA_HOST
+                        def ec2_ip = (params.ENV == 'dev') ? '54.235.10.152' : '18.204.143.100'
                         echo "🚀 Deploying to ${params.ENV.toUpperCase()} server..."
-                        sh "ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@${host} 'bash ~/run-docker.sh'"
+                        sh """ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${ec2_ip} 'bash ~/run-docker.sh'"""
                     }
                 }
             }
@@ -66,19 +61,14 @@ pipeline {
         success {
             withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                 sh '''
-                    curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"✅ *FreelanceForge ${ENV.toUpperCase()} Deployment Successful!*"}' \
-                    $SLACK_WEBHOOK_URL
+                    curl -X POST -H 'Content-type: application/json' --data '{"text":"✅ *FreelanceForge ${ENV.toUpperCase()} Deployment Successful!*"}' $SLACK_WEBHOOK_URL
                 '''
             }
         }
-
         failure {
             withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
                 sh '''
-                    curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"❌ *FreelanceForge ${ENV.toUpperCase()} Deployment Failed!*"}' \
-                    $SLACK_WEBHOOK_URL
+                    curl -X POST -H 'Content-type: application/json' --data '{"text":"❌ *FreelanceForge ${ENV.toUpperCase()} Deployment Failed!*"}' $SLACK_WEBHOOK_URL
                 '''
             }
         }
