@@ -1,86 +1,66 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(name: 'ENV', choices: ['dev', 'qa'], description: 'Choose the environment to deploy')
+    }
+
     environment {
-        GIT_REPO = 'https://github.com/P-Asritha/FreelanceForge.git'
-        DEV_SERVER = "ec2-user@18.205.20.168"  // Public IP of the Dev instance
-        QA_SERVER = "ec2-user@34.204.15.111"  // Public IP of the QA instance
-        PATH = "/usr/local/bin:$PATH"  // Ensures Jenkins uses Node.js installed via Homebrew
+        AWS_ACCESS_KEY_ID = credentials('aws-credentials')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-credentials')
+        SSH_KEY = credentials('ssh-private-key')
+        SLACK_WEBHOOK_URL = credentials('SLACK_WEBHOOK')
     }
 
     stages {
-        stage('Clean Workspace & Fetch Latest Code') {
+        stage('Checkout') {
             steps {
-                script {
-                    echo '🔄 Cleaning workspace and pulling latest changes...'
-                    sh 'git reset --hard'  
-                    sh 'git clean -fd'    
-                    sh 'git pull origin main'  
-                    sh 'ls -la'
+                git branch: 'main', url: 'https://github.com/P-Asritha/FreelanceForge.git'
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                sh 'docker build --platform linux/amd64 -t freelanceforge-client ./client'
+                sh 'docker build --platform linux/amd64 -t freelanceforge-api ./api'
+            }
+        }
+
+        stage('Tag & Push Images to ECR') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh '''
+                        aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+                        docker tag freelanceforge-client public.ecr.aws/c3t3f9g9/freelanceforge-client:latest
+                        docker tag freelanceforge-api public.ecr.aws/c3t3f9g9/freelanceforge-api:latest
+                        docker push public.ecr.aws/c3t3f9g9/freelanceforge-client:latest
+                        docker push public.ecr.aws/c3t3f9g9/freelanceforge-api:latest
+                    '''
                 }
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Set Deploy Server') {
             steps {
                 script {
-                    echo '📦 Installing backend & frontend dependencies...'
-                    sh 'cd api && npm install --legacy-peer-deps'
-                    sh 'cd client && npm install --legacy-peer-deps'
-                    sh 'mkdir -p client/node_modules/.vite'
-                }
-            }
-        }
-
-        stage('Build Application') {
-            steps {
-                script {
-                    echo '⚙️ Building application...'
-                    sh 'cd api && npm run build || echo "No build step needed for backend"'
-                    sh 'cd client && npm run build'
-                }
-            }
-        }
-
-        stage('Deploy to Dev') {
-            steps {
-                script {
-                    // Send Slack notification before starting deployment
-                    withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-                        echo '🚀 Build Started for Dev environment...'
-                        sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for Dev environment.*\"}' ${SLACK_WEBHOOK_URL}"
-                    }
-
-                    // Use the SSH private key to deploy
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
-                        echo '🚀 Deploying to Dev environment...'
-
-                        // Install PM2 and deploy app
-                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'sudo npm install -g pm2'"
-                        sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-dev.sh deploy-dev.sh ecosystem.config.js ${DEV_SERVER}:~/app"
-                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEV_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                    if (params.ENV == 'dev') {
+                        env.DEPLOY_SERVER = '44.193.128.7'
+                    } else if (params.ENV == 'qa') {
+                        env.DEPLOY_SERVER = '54.83.124.81'
                     }
                 }
             }
         }
 
-        stage('Deploy to QA') {
+        stage('Remote Deploy to EC2') {
             steps {
-                script {
-                    // Send Slack notification before starting deployment
-                    withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-                        echo '🚀 Build Started for QA environment...'
-                        sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":rocket: *Build Started for QA environment.*\"}' ${SLACK_WEBHOOK_URL}"
-                    }
-
-                    // Use the SSH private key to deploy
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
-                        echo '🚀 Deploying to QA environment...'
-
-                        // Install PM2 and deploy app
-                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'sudo npm install -g pm2'"
-                        sh "scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r api client deploy-qa.sh deploy-qa.sh ecosystem.config.js ${QA_SERVER}:~/app"
-                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${QA_SERVER} 'cd ~/app && npm install --legacy-peer-deps && pm2 restart ecosystem.config.js'"
+                withCredentials([sshUserPrivateKey(credentialsId: 'ssh-private-key', keyFileVariable: 'SSH_KEY')]) {
+                    script {
+                        echo "🚀 Deploying to ${params.ENV.toUpperCase()} server at ${env.DEPLOY_SERVER}..."
+                        sh "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${env.DEPLOY_SERVER} 'bash ~/run-docker.sh'"
                     }
                 }
             }
@@ -89,24 +69,24 @@ pipeline {
 
     post {
         success {
-            script {
-                // Send Slack notification after successful deployment
-                withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-                    echo '✅ Build & Deployment Successful!'
-                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":white_check_mark: *Build SUCCESSFUL for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
-                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":white_check_mark: *Build SUCCESSFUL for QA environment!*\"}' ${SLACK_WEBHOOK_URL}"
-                }
+            withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh """
+                    curl -X POST -H 'Content-type: application/json' --data '{
+                      "text": "✅ *Build Success!*\n*Environment:* ${params.ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* SUCCESS\n*Server:* ${env.DEPLOY_SERVER}"
+                    }' $SLACK_WEBHOOK_URL
+                """
             }
         }
+
         failure {
-            script {
-                // Send Slack notification after failed deployment
-                withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-                    echo '❌ Build Failed!'
-                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":x: *Build FAILED for Dev environment!*\"}' ${SLACK_WEBHOOK_URL}"
-                    sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\": \":x: *Build FAILED for QA environment!*\"}' ${SLACK_WEBHOOK_URL}"
-                }
+            withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh """
+                    curl -X POST -H 'Content-type: application/json' --data '{
+                      "text": "❌ *Build Failed!*\n*Environment:* ${params.ENV.toUpperCase()}\n*Job:* ${env.JOB_NAME}\n*Status:* FAILURE\n*Server:* ${env.DEPLOY_SERVER}"
+                    }' $SLACK_WEBHOOK_URL
+                """
             }
         }
     }
 }
+
