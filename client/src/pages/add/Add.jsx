@@ -72,8 +72,8 @@ const Add = () => {
     }
     mutation.mutate(state);
     navigate("/mygigs");
-  };  
-  
+  };
+
   return (
     <div className="add">
       <div className="container">
@@ -95,11 +95,14 @@ const Add = () => {
               <option value="music">Music</option>
             </select> */}
             <select name="cat" id="cat" onChange={handleChange} defaultValue="">
-               <option value="" disabled>Select Category</option>
-                <option value="design">Design</option>
-                <option value="web">Web Development</option>
-                <option value="animation">Animation</option>
-                <option value="music">Music</option>
+              <option value="" disabled>
+                Select Category
+              </option>
+              <option value="design">Design</option>
+              <option value="web">Web Development</option>
+              <option value="animation">Animation</option>
+              <option value="music">Music</option>
+              <option value="ai">AI</option>
             </select>
             <div className="images">
               <div className="imagesInputs">
