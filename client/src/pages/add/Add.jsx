@@ -59,11 +59,6 @@ const Add = () => {
     },
   });
 
-  // const handleSubmit = (e) => {
-  //   e.preventDefault();
-  //   mutation.mutate(state);
-  //   navigate("/mygigs")
-  // };
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!state.cat || state.cat === "") {
@@ -88,12 +83,6 @@ const Add = () => {
               onChange={handleChange}
             />
             <label htmlFor="">Category</label>
-            {/* <select name="cat" id="cat" onChange={handleChange}>
-              <option value="design">Design</option>
-              <option value="web">Web Development</option>
-              <option value="animation">Animation</option>
-              <option value="music">Music</option>
-            </select> */}
             <select name="cat" id="cat" onChange={handleChange} defaultValue="">
               <option value="" disabled>
                 Select Category
