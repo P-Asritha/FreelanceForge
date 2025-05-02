@@ -72,7 +72,7 @@ pipeline {
                     }' $SLACK_WEBHOOK_URL
                 """
             }
-            mail to: 'ap52698n@pace.edu',
+            mail to: 'pallapotuasritha@gmail.com',
                  subject: "✅ Build SUCCESS - ${env.JOB_NAME} [${params.ENV.toUpperCase()}]",
                  body: """Build was successful!
 
@@ -92,7 +92,7 @@ Check build details at: ${env.BUILD_URL}
                     }' $SLACK_WEBHOOK_URL
                 """
             }
-            mail to: 'ap52698n@pace.edu',
+            mail to: 'pallapotuasritha@gmail.com',
                  subject: "❌ Build FAILURE - ${env.JOB_NAME} [${params.ENV.toUpperCase()}]",
                  body: """Build failed.
 
