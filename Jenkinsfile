@@ -46,11 +46,7 @@ pipeline {
         stage('Set Deploy Server') {
             steps {
                 script {
-                    if (params.ENV == 'dev') {
-                        env.DEPLOY_SERVER = '44.193.128.7'
-                    } else if (params.ENV == 'qa') {
-                        env.DEPLOY_SERVER = '54.83.124.81'
-                    }
+                    env.DEPLOY_SERVER = (params.ENV == 'dev') ? '44.193.128.7' : '54.83.124.81'
                 }
             }
         }
@@ -76,6 +72,16 @@ pipeline {
                     }' $SLACK_WEBHOOK_URL
                 """
             }
+            mail to: 'ap52698n@pace.edu',
+                 subject: "✅ Build SUCCESS - ${env.JOB_NAME} [${params.ENV.toUpperCase()}]",
+                 body: """Build was successful!
+
+Environment: ${params.ENV.toUpperCase()}
+Job: ${env.JOB_NAME}
+Server: ${env.DEPLOY_SERVER}
+
+Check build details at: ${env.BUILD_URL}
+"""
         }
 
         failure {
@@ -86,7 +92,16 @@ pipeline {
                     }' $SLACK_WEBHOOK_URL
                 """
             }
+            mail to: 'ap52698n@pace.edu',
+                 subject: "❌ Build FAILURE - ${env.JOB_NAME} [${params.ENV.toUpperCase()}]",
+                 body: """Build failed.
+
+Environment: ${params.ENV.toUpperCase()}
+Job: ${env.JOB_NAME}
+Server: ${env.DEPLOY_SERVER}
+
+Check build logs at: ${env.BUILD_URL}
+"""
         }
     }
 }
-
